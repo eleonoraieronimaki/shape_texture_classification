@@ -2,8 +2,6 @@ import os
 import numpy as np
 import diplib as dip
 import matplotlib.pyplot as plt
-from scipy.spatial import distance_matrix, distance
-from torch import threshold
 
 
 def load_dip_images(images_dir):
@@ -23,6 +21,8 @@ def load_dip_images(images_dir):
     img_names = []
     for filename in sorted(os.listdir(images_dir)):
         if ".tif" in filename:
+            if filename[-5] not in [str(x) for x in range(0,10)]:
+                continue
             dip_images.append(dip.ImageReadTIFF(images_dir+filename))
             img_names.append(filename)
     return dip_images, img_names
@@ -65,8 +65,8 @@ def make_grayscale(dip_images: list):
     blues = []
     grays = []
     for img in dip_images:
-        
-        array= np.array(img)
+        kuwahara = dip.Kuwahara(img, 10,10)
+        array= np.array(kuwahara)
         new_img = dip.ColorSpaceManager.Convert(img, "gray")
         blue_img = dip.Image(array[:,:,2])
         blues.append(blue_img)
@@ -86,11 +86,16 @@ def threshold_images(dip_images, use_otsu=False):
             list of the thresholded images
     """
     images_thresh = []
+    counter = 0
     for img in dip_images:
         # curr_img = dip.ContrastStretch(img)
-        kuwahara =  dip.Kuwahara(img,kernel=30,threshold=10)
-        curr_img = dip.TriangleThreshold(kuwahara)
+        # kuwahara =  dip.Kuwahara(img,kernel=30,threshold=10)
+        if counter > 25:
+            curr_img = dip.TriangleThreshold(img)
+        else:    
+            curr_img = dip.OtsuThreshold(img)
         images_thresh.append(curr_img)
+        counter += 1
     return images_thresh
 
 def apply_transformations(dip_images: list):
