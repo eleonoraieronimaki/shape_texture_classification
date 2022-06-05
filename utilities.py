@@ -1,3 +1,4 @@
+from copy import deepcopy
 import os
 import numpy as np
 import diplib as dip
@@ -5,7 +6,7 @@ import matplotlib.pyplot as plt
 from skimage.io import imread
 from skimage.feature import hog
 import matplotlib.pyplot as plt
-
+from PIL import Image
 
 def load_dip_images(images_dir):
     """ Will only load the tif images of directory.
@@ -62,16 +63,18 @@ def save_images(dip_images, images_dir, name_temp="", file_type="tif"):
             exit()
         counter += 1
 
-def normalize(dip_images:list):
-    norm_imgs = []
+def normalize_resize(dip_images:list, new_size=(323,256), normalize=True):
+    new_images = []
 
     for i in range(len(dip_images)):
         arr = np.array(dip_images[i])
-        max = np.amax(arr)
-        min = np.amin(arr)
-        norm_imgs.append(dip.Image((np.array(dip_images[i]) - min) / (max - min)))
-        
-    return norm_imgs
+        max = 65535
+        min = 0
+        if normalize == True:
+            arr = (((arr - min) / (max - min))*255).astype(np.uint8)
+        rescaled = Image.fromarray(arr).resize(new_size)
+        new_images.append(dip.Image(np.array(rescaled)))
+    return new_images
 
 def make_grayscale(dip_images: list):
     """ Converts the diplip images to grayscale
@@ -84,6 +87,14 @@ def make_grayscale(dip_images: list):
         blue_img = dip.Image(array[:,:,2])
         blues.append(blue_img)
     return blues
+
+def invert_colors(dip_images: list):
+    new_images = []
+    print(len(dip_images))
+    for img in dip_images:
+        new_img = np.array(img) == False
+        new_images.append(dip.Image(new_img))
+    return new_images
 
 def blue_area(dip_images: list,features):
     """ Converts the diplip images to unit8 and threshold them to extract the gene expression
@@ -112,7 +123,7 @@ def blue_area(dip_images: list,features):
     return blue_areas, m, grays
 
 
-def threshold_images(dip_images, use_otsu=False):
+def threshold_images(dip_images):
     """ Triangle threshold all the dip_images in the list.
         The images will be converted to grayscale if 
         not already grayscale.
@@ -127,8 +138,6 @@ def threshold_images(dip_images, use_otsu=False):
     images_thresh = []
     counter = 0
     for img in dip_images:
-        # curr_img = dip.ContrastStretch(img)
-        # kuwahara =  dip.Kuwahara(img,kernel=30,threshold=10)
         if counter > 25:
             curr_img = dip.TriangleThreshold(img)
         else:    
@@ -196,11 +205,11 @@ def parse_features(measurements):
 
 def measurements_array(measurements, features):
 
-    areas, perimeters, circularity, roundness, stand_dev, minimum, maximum  = [], [], [],[], [], [] , [] 
+    areas, perimeters, circularity, roundness, stand_dev  = [],[], [], [] , [] 
     
     test = []
     for i in range(len(measurements)):
-        area, perimeter, circ, round, stds, mini, maxi  = [], [], [], [] , [] , [] , [] 
+        area, perimeter, circ, round, stds  = [], [] , [] , [] , [] 
 
         for j in range(1,measurements[i].NumberOfObjects()+1):
 
@@ -209,8 +218,7 @@ def measurements_array(measurements, features):
             circ.append(measurements[i][features[2]][j][0])
             round.append(measurements[i][features[3]][j][0])
             stds.append(measurements[i][features[4]][j][0])
-            mini.append(measurements[i][features[5]][j])
-            maxi.append(measurements[i][features[6]][j])
+
         
         test.append(area)
         idx = np.argmax(area)
@@ -219,32 +227,40 @@ def measurements_array(measurements, features):
         circularity.append(circ[idx])
         roundness.append(round[idx])
         stand_dev.append(stds[idx])
-        minimum.append(mini[idx])
-        maximum.append(maxi[idx])
-
-    return areas, perimeters, circularity, roundness, stand_dev, minimum, maximum
 
 
-def crop_images(dip_images: list, minimum, maximum):
+    return areas, perimeters, circularity, roundness, stand_dev
+
+def crop_images(dip_images: list, minimum, maximum, img_shape=(1300,1030), off=5):
     cropped_img = []
     for i in range(len(dip_images)):
-        if int(maximum[i][0])+30 >1300 or int(maximum[i][1])+30> 1030 or int(minimum[i][0])-30<0 or int(minimum[i][1])-30<0 :
-            cropped_img.append(dip.Image.At(dip_images[i], slice(int(minimum[i][0]),int(maximum[i][0])), 
-                                    slice(int(minimum[i][1]),int(maximum[i][1]))))
+        # max boundary pixels
+        x_max_padding = int(maximum[i][0])
+        y_max_padding = int(maximum[i][1])
+        # min boudary pixels
+        x_min_padding = int(minimum[i][0])
+        y_min_padding = int(minimum[i][1])
+
+        if x_max_padding+off > img_shape[0] or y_max_padding+off > img_shape[1] or \
+            x_min_padding-off < 0 or y_min_padding-off < 0 :
+            cropped_img.append(dip.Image.At(dip_images[i], 
+                                slice(x_min_padding,x_max_padding), 
+                                slice(y_min_padding,y_max_padding)))
         else:
-            cropped_img.append(dip.Image.At(dip_images[i], slice((int(minimum[i][0])-30),(int(maximum[i][0])+30)), 
-                                    slice((int(minimum[i][1])-30),(int(maximum[i][1])+30))))
+            cropped_img.append(dip.Image.At(dip_images[i], 
+                            slice(x_min_padding-off,x_max_padding+off), 
+                            slice(y_min_padding-off,y_max_padding+off)))
     return cropped_img
 
 
-def hog_img(dip_images: list, orientation = 8, pixels_per_cell=(16,64)):
+def hog_img(dip_images: list, orientation = 8, pixels_per_cell=(16,64), rgb = True):
 
     hog_images= []
     for img in dip_images:
-
-        _, hog_image = hog(img, orientations= orientation, pixels_per_cell=pixels_per_cell,
-                            cells_per_block=(1, 1), visualize=True)
-
+        _, hog_image = hog(img, orientations= orientation, 
+                            pixels_per_cell=pixels_per_cell,
+                            cells_per_block=(1, 1), visualize=True, 
+                            channel_axis=-1 if rgb else None)
         hog_images.append(dip.Image(hog_image))
 
     return hog_images
