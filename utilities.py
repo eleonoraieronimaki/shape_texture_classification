@@ -62,6 +62,17 @@ def save_images(dip_images, images_dir, name_temp="", file_type="tif"):
             exit()
         counter += 1
 
+def normalize(dip_images:list):
+    norm_imgs = []
+
+    for i in range(len(dip_images)):
+        arr = np.array(dip_images[i])
+        max = np.amax(arr)
+        min = np.amin(arr)
+        norm_imgs.append(dip.Image((np.array(dip_images[i]) - min) / (max - min)))
+        
+    return norm_imgs
+
 def make_grayscale(dip_images: list):
     """ Converts the diplip images to grayscale
     """
@@ -70,11 +81,9 @@ def make_grayscale(dip_images: list):
     for img in dip_images:
         kuwahara = dip.Kuwahara(img, 10,10)
         array= np.array(kuwahara)
-        new_img = dip.ColorSpaceManager.Convert(img, "gray")
         blue_img = dip.Image(array[:,:,2])
         blues.append(blue_img)
-        grays.append(new_img)
-    return grays, blues
+    return blues
 
 def blue_area(dip_images: list,features):
     """ Converts the diplip images to unit8 and threshold them to extract the gene expression
@@ -239,3 +248,4 @@ def hog_img(dip_images: list, orientation = 8, pixels_per_cell=(16,64)):
         hog_images.append(dip.Image(hog_image))
 
     return hog_images
+
