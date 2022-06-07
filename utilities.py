@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from skimage.io import imread
 from skimage.feature import hog
 import matplotlib.pyplot as plt
+from natsort import natsorted
 from PIL import Image
 
 def load_dip_images(images_dir):
@@ -23,7 +24,7 @@ def load_dip_images(images_dir):
     # load all .tif images
     dip_images = []
     img_names = []
-    for filename in sorted(os.listdir(images_dir)):
+    for filename in natsorted(os.listdir(images_dir)):
         if ".tif" in filename:
             if filename[-5] not in [str(x) for x in range(0,10)]:
                 continue
@@ -40,6 +41,7 @@ def save_images(dip_images, images_dir, name_temp="", file_type="tif"):
                         to give to the series of images
             - file_type: can be string or list of file types to save image
     """
+
     # check that path is correctly defined
     if images_dir[-1] != "/":
         images_dir += "/"
@@ -253,15 +255,50 @@ def crop_images(dip_images: list, minimum, maximum, img_shape=(1300,1030), off=5
     return cropped_img
 
 
-def hog_img(dip_images: list, orientation = 8, pixels_per_cell=(16,64), rgb = True):
+def calculate_hog(dip_images: list, orientation = 8, pixels_per_cell=(16,64), rgb = True, visualize=False):
 
     hog_images= []
     for img in dip_images:
         _, hog_image = hog(img, orientations= orientation, 
                             pixels_per_cell=pixels_per_cell,
-                            cells_per_block=(1, 1), visualize=True, 
+                            cells_per_block=(1, 1), visualize=visualize, 
                             channel_axis=-1 if rgb else None)
         hog_images.append(dip.Image(hog_image))
 
     return hog_images
 
+
+def embryo_mask(data_orig: list, data_thresh: list, labeled=False):
+    """ Filters the input images to create masks of only 
+        the biggest object in the image.
+    
+    Params:
+            - data_orig: list of original data used for some measurements
+            - data_thresh: list of thresholded boolean images (masks)
+                            from which to sample measurements
+            - labeled:
+        Returns:
+            - list of iamges with only the biggest element
+    """
+
+    #transf_lab = [embryos_transf[i] > 0 for i in range(len(embryos_transf))]
+    
+    # choose object based on size
+    measures = ['Size']
+    # label image if required
+    if not labeled:
+        labeled_embr, measurements = measure_elements(data_thresh, 
+                                                        data_orig, 
+                                                        measures)
+    meas_np = parse_features(measurements)
+    new_images = []
+    for i in range(len(labeled_embr)):
+        curr_areas = meas_np[i]
+        if len(curr_areas) > 1:
+            max_area = curr_areas.max()
+            new_img = dip.SmallObjectsRemove(data_thresh[i], int(max_area-1))
+            new_images.append(new_img)
+        else: 
+            new_images.append(data_thresh[i])
+
+    return new_images
