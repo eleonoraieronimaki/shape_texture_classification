@@ -1,5 +1,5 @@
 # img_analysis5
 Shape and Texture features for Classification
-![Screenshot](embryo1.png)
 
-<img src="embryo1.png" width="100" height="100">
+<img src="embryo1.png" width="500" height="500">
+<img src="embryo2.png" width="500" height="500">
