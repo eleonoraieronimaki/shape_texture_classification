@@ -13,10 +13,15 @@ The images shown below are taken from the dataset as an example. The blue areas 
 
 The main steps followed in order to achieve this are: 
 - ## Segmentation and Preprocessing : 
-Develop and apply a segmentation technique to prepare the embryos for further processing. 
+Develop and apply a segmentation technique to prepare the embryos for further processing. This means deriving a mask for each of the images to be able to extract the “plant embryo” for further analysis. 
+An example of the masks obtained for both the total area of the embryo and the blue area are reported below. 
+<p float="left">
+<img src="mask_tot.png" width="400" height="300">
+<img src="mask_blue.png" width="400" height="300">
+</p>
 
 - ## Shape feature:
-Compute the size and shape for the embryos in all images; including the amount of gene-expression
+Compute the size and shape for the embryos in all images; including the amount of gene-expression. 
 - ## Texture feature:
 Compute the texture (standard deviation and uniformity )  in the blue part as well as in the remaining part of the embryo 
 - ## HOG feature: 
