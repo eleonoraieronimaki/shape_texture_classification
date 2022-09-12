@@ -16,7 +16,7 @@ The main steps followed in order to achieve this are:
 Develop and apply a segmentation technique to prepare the embryos for further processing. This means deriving a mask for each of the images to be able to extract the “plant embryo” for further analysis. 
 An example of the masks obtained for both the total area of the embryo and the blue area are reported below. 
 <p float="left">
-<img src="mask_tot.png" width="400" height="300">
+<img src="mask_embryo.png" width="400" height="300">
 <img src="mask_blue.png" width="400" height="300">
 </p>
 
